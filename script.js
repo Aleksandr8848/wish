@@ -127,10 +127,13 @@ function updateProfileIcon(avatarUrl) {
 // =========================================
 
 function openModal() {
+    if (currentUser) {
+        alert('Профиль уже выбран. Для смены обратитесь к админу');
+        return;
+    }
     createModalContent();
     modal.style.display = 'flex';
 }
-
 function closeModal() {
     modal.style.display = 'none';
 }
@@ -139,17 +142,25 @@ async function createModalContent() {
     allProfiles = await loadProfiles();
     allPurchases = await loadPurchases();
 
-    // Занятые профили (кроме своего)
+    // Занятые профили — те, что уже выбрал кто-то в users
+    const allUsers = await loadUsers();
     const busyProfileIds = new Set(
-        allPurchases.map(p => p.users?.profile_id).filter(Boolean)
+        allUsers.map(u => u.profile_id).filter(Boolean)
     );
 
+    // Скрываем занятые, кроме своего
     const availableProfiles = allProfiles.filter(profile => {
         if (currentUser && currentUser.profile_id === profile.id) return true;
         return !busyProfileIds.has(profile.id);
     });
 
     profileGrid.innerHTML = '';
+
+    if (currentUser) {
+        // Пользователь уже выбрал — показываем только сообщение
+        profileGrid.innerHTML = `<p>Вы уже выбрали профиль.</p>`;
+        return;
+    }
 
     if (availableProfiles.length === 0) {
         profileGrid.innerHTML = '<p>Все профили заняты 😔</p>';
@@ -167,6 +178,11 @@ async function createModalContent() {
         profileGrid.appendChild(item);
     });
 }
+async function loadUsers() {
+    const { data } = await supabase.from('users').select('*');
+    return data || [];
+}
+
 
 // =========================================
 // 5. ВЫБОР ПРОФИЛЯ
@@ -262,26 +278,44 @@ async function renderProducts() {
     cardsContainer.innerHTML = '';
 
     allProducts.forEach(product => {
-        const purchase = allPurchases.find(p => p.product_id === product.id);
+        // Все покупки этого товара
+        const productPurchases = allPurchases.filter(p => p.product_id === product.id);
+        
+        // Есть ли среди них покупка текущего пользователя?
+        const myPurchase = currentUser 
+            ? productPurchases.find(p => p.user_id === currentUser.id) 
+            : null;
 
         let buttonHTML = '';
-        if (!purchase) {
-            buttonHTML = `<button class="buy-btn" onclick="buyProduct(${product.id})">Купить</button>`;
-        } else if (currentUser && purchase.user_id === currentUser.id) {
-            buttonHTML = `<button class="buy-btn cancel" onclick="cancelPurchase(${purchase.id})">Отменить покупку</button>`;
-        } else {
-            const buyer = purchase.users?.profiles;
-            const avatar = buyer?.avatar_url || 'images/profile.png';
-            const name = buyer?.username || 'Кто-то';
+
+        if (myPurchase) {
+            // У текущего пользователя есть покупка этого товара — кнопка "Отменить"
+            buttonHTML = `<button class="buy-btn cancel" onclick="cancelPurchase(${myPurchase.id})">Отменить покупку</button>`;
+        } else if (productPurchases.length > 0) {
+            // Товар куплен кем-то другим — кнопка активна, но с уведомлением
+            const buyers = productPurchases
+                .map(p => p.users?.profiles)
+                .filter(Boolean);
+            
+            // Формируем HTML тултипа: аватарки + имена всех покупателей
+            const buyerInfo = buyers.map(b => `
+                <div class="tooltip-buyer">
+                    <img src="${b.avatar_url}" alt="${b.username}">
+                    <span>${b.username}</span>
+                </div>
+            `).join('');
+
             buttonHTML = `
-                <button class="buy-btn busy">
-                    Куплено
+                <button class="buy-btn busy" onclick="showBusyNotification(${product.id})">
+                    Куплено (${buyers.length})
                     <span class="tooltip">
-                        <img src="${avatar}" alt="${name}">
-                        <span>${name}</span>
+                        ${buyerInfo}
                     </span>
                 </button>
             `;
+        } else {
+            // Товар свободен — кнопка "Купить"
+            buttonHTML = `<button class="buy-btn" onclick="buyProduct(${product.id})">Купить</button>`;
         }
 
         const card = document.createElement('div');
@@ -298,7 +332,26 @@ async function renderProducts() {
         cardsContainer.appendChild(card);
     });
 }
+function showBusyNotification(productId) {
+    const productPurchases = allPurchases.filter(p => p.product_id === productId);
+    const buyers = productPurchases
+        .map(p => p.users?.profiles)
+        .filter(Boolean);
 
+    if (buyers.length === 0) {
+        alert('Этот товар уже куплен.');
+        return;
+    }
+
+    if (buyers.length === 1) {
+        alert(`Этот товар уже купил(а): ${buyers[0].username}`);
+    } else {
+        const names = buyers.map(b => b.username).join(', ');
+        alert(`Этот товар уже купили: ${names}`);
+    }
+}
+
+window.showBusyNotification = showBusyNotification;
 // =========================================
 // 9. КУПИТЬ / ОТМЕНИТЬ
 // =========================================
@@ -310,6 +363,32 @@ async function buyProduct(productId) {
         return;
     }
 
+    // Проверяем, не купил ли уже текущий пользователь
+    const myPurchase = allPurchases.find(
+        p => p.product_id === productId && p.user_id === currentUser.id
+    );
+    if (myPurchase) {
+        alert('Вы уже купили этот товар!');
+        return;
+    }
+
+    // Проверяем, куплен ли кем-то другим, и уведомляем
+    const otherPurchases = allPurchases.filter(
+        p => p.product_id === productId && p.user_id !== currentUser.id
+    );
+
+    if (otherPurchases.length > 0) {
+        const names = otherPurchases
+            .map(p => p.users?.profiles?.username)
+            .filter(Boolean)
+            .join(', ');
+        const confirmBuy = confirm(
+            `Этот товар уже купили: ${names}. Всё равно купить?`
+        );
+        if (!confirmBuy) return;
+    }
+
+    // Вставляем запись
     const { error } = await supabase
         .from('purchases')
         .insert([{
@@ -319,13 +398,11 @@ async function buyProduct(productId) {
         }]);
 
     if (error) {
-        if (error.code === '23505') { // уникальность
-            alert('Этот товар уже кто-то купил!');
-        } else {
-            console.error(error);
-        }
+        console.error(error);
+        alert('Ошибка при покупке. Попробуйте ещё раз.');
         return;
     }
+
     await renderProducts();
 }
 
@@ -390,7 +467,7 @@ function initParallax() {
     const layer3 = document.querySelector('.layer-3');
     const text = document.querySelector('.parallax-text');
 
-    if (window.innerWidth < 768) return;
+  //  if (window.innerWidth < 768) return;
 
     if (!layer1 || !layer2 || !layer3) return;
 
