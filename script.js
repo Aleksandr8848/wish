@@ -379,3 +379,45 @@ modal.addEventListener('click', (e) => {
 window.openModal = openModal;
 window.buyProduct = buyProduct;
 window.cancelPurchase = cancelPurchase;
+
+// =========================================
+// 12. ПАРАЛЛАКС ЭФФЕКТ
+// =========================================
+
+function initParallax() {
+    const layer1 = document.querySelector('.layer-1');
+    const layer2 = document.querySelector('.layer-2');
+    const layer3 = document.querySelector('.layer-3');
+    const text = document.querySelector('.parallax-text');
+
+    if (window.innerWidth < 768) return;
+
+    if (!layer1 || !layer2 || !layer3) return;
+
+    let ticking = false;
+
+    function updateParallax() {
+        const scrollY = window.scrollY;
+
+        // Двигаем только пока не прошли первый экран
+        if (scrollY < window.innerHeight) {
+            if (layer1) layer1.style.transform = `translateY(${scrollY * 0.2}px)`;
+            if (layer2) layer2.style.transform = `translateY(${scrollY * 0.4}px)`;
+            if (text)   text.style.transform   = `translateY(${scrollY * 0.3}px)`;
+            if (layer3) layer3.style.transform = `translateY(${scrollY * 0.6}px)`;
+
+            if (text) text.style.opacity = 1 - (scrollY / (window.innerHeight * 0.7));
+        }
+        ticking = false;
+    }
+
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            window.requestAnimationFrame(updateParallax);
+            ticking = true;
+        }
+    });
+}
+
+// Запускаем после загрузки страницы
+document.addEventListener('DOMContentLoaded', initParallax);
