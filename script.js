@@ -189,35 +189,63 @@ async function loadUsers() {
 // =========================================
 
 async function selectProfile(profile) {
+    // Если уже есть currentUser — обновляем профиль
     if (currentUser) {
-        // Обновляем профиль у существующего пользователя
         const { error } = await supabase
             .from('users')
             .update({ profile_id: profile.id })
             .eq('id', currentUser.id);
 
-        if (error) { console.error(error); return; }
+        if (error) { 
+            console.error('Ошибка обновления профиля:', error);
+            alert('Не удалось обновить профиль. Попробуйте ещё раз.');
+            return;
+        }
         currentUser.profile_id = profile.id;
         currentUser.profiles = profile;
     } else {
-        // Создаём нового пользователя
+        // Проверяем, нет ли уже записи в localStorage
+        const existingId = localStorage.getItem('userId');
+        
+        if (existingId) {
+            // Попробуем найти запись по ID
+            const { data: existing } = await supabase
+                .from('users')
+                .select(`id, profile_id, user_token, profiles (username, avatar_url)`)
+                .eq('id', existingId)
+                .single();
+            
+            if (existing) {
+                // Нашли — обновляем
+                const { error } = await supabase
+                    .from('users')
+                    .update({ profile_id: profile.id })
+                    .eq('id', existing.id);
+
+                if (error) { console.error(error); return; }
+                currentUser = { ...existing, profile_id: profile.id, profiles: profile };
+                updateProfileIcon(profile.avatar_url);
+                closeModal();
+                await renderProducts();
+                return;
+            }
+        }
+
+        // Создаём нового ТОЛЬКО если предыдущих попыток не было
         const { data, error } = await supabase
             .from('users')
             .insert([{ profile_id: profile.id }])
-            .select(`
-                id,
-                profile_id,
-                user_token,
-                profiles (username, avatar_url)
-            `)
+            .select(`id, profile_id, user_token, profiles (username, avatar_url)`)
             .single();
 
-        if (error) { console.error(error); return; }
+        if (error) { 
+            console.error('Ошибка создания пользователя:', error); 
+            alert('Не удалось создать пользователя. Попробуйте ещё раз.');
+            return; 
+        }
         currentUser = data;
         localStorage.setItem('userId', data.id);
         localStorage.setItem('userToken', data.user_token);
-
-        // Показываем уведомление с токеном
         showTokenNotification(data.user_token);
     }
 
@@ -424,10 +452,14 @@ function subscribeToRealtime() {
     realtimeChannel = supabase
         .channel('public-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => {
-            renderProducts(); // Любые изменения в покупках → перерисовка
+            renderProducts();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-            if (modal.style.display === 'flex') createModalContent(); // Обновляем модалку
+            if (modal.style.display === 'flex') createModalContent();
+            renderProducts();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+            if (modal.style.display === 'flex') createModalContent();
         })
         .subscribe();
 }
