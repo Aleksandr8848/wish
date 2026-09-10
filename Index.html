@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подарки для Ариночки</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- СЕКЦИЯ 1: ПАРАЛЛАКС -->
+    <section class="parallax-hero" id="hero">
+        
+        <!-- Базовый градиентный фон (если PNG прозрачные) -->
+        <div class="parallax-bg"></div>
+
+        <!-- Дальний план (Двигается медленнее всех) -->
+        <div class="parallax-layer layer-1">
+            <img src="images/layer1.png" alt="Дальний план">
+        </div>
+
+        <!-- Средний план -->
+        <div class="parallax-layer layer-2">
+            <img src="images/layer2.png" alt="Средний план">
+        </div>
+
+        <!-- Центральный текст (Двигается еще медленнее для глубины) -->
+        <div class="parallax-text">
+            <h1 class="font-bergamasco">Вишлист для Ариночки</h1>
+            <p>Листай вниз, чтобы увидеть подарки</p>
+        </div>
+
+        <!-- Ближний план (Двигается быстрее всех) -->
+        <div class="parallax-layer layer-3">
+            <img src="images/layer3.png" alt="Ближний план">
+        </div>
+        
+    </section>
+
+<div class="profile-btn-container">
+    <button class="profile-btn" onclick="openModal()">
+        <img src="images/profile.png" alt="Профиль" class="profile-img">
+    </button>
+</div>
+<!-- Модальное окно выбора профиля -->
+<div id="profileModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <h2>Выберите свой профиль</h2>
+        <div id="profileGrid" class="profile-grid">
+            <p>Загрузка...</p>
+        </div>
+        
+        <div class="token-section">
+            <p class="token-label">Уже выбрали профиль ранее? Вставьте свой токен:</p>
+            <input type="text" id="tokenInput" placeholder="Вставьте ваш токен..." class="token-input">
+            <button id="restoreBtn" class="btn-restore">Восстановить</button>
+        </div>
+        
+        <button id="closeModalBtn" class="btn-close-modal">Закрыть</button>
+    </div>
+</div>
+<!-- Уведомление с токеном -->
+<div id="tokenNotification" class="token-notification" style="display: none;">
+    <p><strong>Сохраните свой токен!</strong> Он нужен для восстановления доступа:</p>
+    <input type="text" id="userTokenDisplay" readonly class="token-display">
+    <div class="token-actions">
+        <button id="copyTokenBtn" class="btn-copy">Скопировать</button>
+        <button id="closeTokenBtn" class="btn-close-token">Я сохранил</button>
+    </div>
+</div>
+    <!-- СЕКЦИЯ 2: КАТАЛОГ (Статичный фон) -->
+    <section id="wishlist" class="catalog-section" style="background-color: transparent;">
+    <h1 class="font-bergamasco">Список желаний</h1>
+    
+    <div class="cards-container" id="cardsContainer">
+        <!-- Карточки будут генерироваться из JS -->
+    </div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+    <!-- Подключаем JS в самом конце -->
+    <script src="script.js"></script>
+</body>
+</html>

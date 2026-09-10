@@ -1,0 +1,21 @@
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Редакторы
+.vscode/
+.idea/
+
+# Логи
+*.log
+npm-debug.log*
+
+# Секреты (если будете хранить ключи отдельно)
+.env
+.env.local
+
+# node_modules (если появятся)
+node_modules/
+
+# Временные файлы
+*.tmp
